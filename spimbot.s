@@ -165,7 +165,7 @@ done:
     
     
 #####================================#####
-#                 Start
+#            Start Movement
 #####================================#####
 
 
@@ -222,7 +222,9 @@ pos_x:
     mfc1    $t0, $f6
     add    $t3, $t3, $t0    # angle += delta
 
-    sw  $t3, ANGLE      #Set ANGLE to arctan of y/x
+    li  $t2, 1
+    sw  $t2, ANGLE_CONTROL  #ANGLE_CONTROL = ABSOLUTE
+    sw  $t3, ANGLE          #Set ANGLE to arctan of y/x
     
 moveToStart:
     li  $t2, 1
@@ -239,27 +241,43 @@ moveToStart:
     
     
 moveAlong:                  #initial angle set from start position
-    li  $t2, 0
-    sw  $t2, ANGLE
     li  $t2, 1
     sw  $t2, ANGLE_CONTROL
+    li  $t2, 0
+    sw  $t2, ANGLE
 continueMove:
     li  $t2, 10
     sw  $t2, VELOCITY
     lw  $t1, BOT_X
     li  $t2, 30
     div $t2, $t1, $t2
-    mflo $t1            #t2 = Bot Xpos in grid
+    mflo $t1                        #t2 = Bot Xpos in grid
     li  $t2, 9
     li  $t3, 2
-    bgt $t1, $t2, turnAround
-    blt $t1, $t3, turnAround
+    bgt $t1, $t2, turnAround        #Turn around when it passes square 9
+    blt $t1, $t3, turnAround        #Turn around when it passes square 2
     j continueMove:
 turnAround:
-    
-    
-    
-    
+    #TODO: Add puzzle solving when it hits an edge
+    li  $t2, 0
+    sw  $t2, ANGLE_CONTROL
+    li  $t2, 180
+    sw  $t2, ANGLE
+    lw  $t1, GET_NUM_SEEDS
+    li  $t2, 10
+    bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
+needSeeds:
+    li  $t0, 1                      #ELSE get seeds
+    sw  $t0, SET_RESOURCE_TYPE
+    la  $t0, puzzleChunk
+    sw  $t0, REQUEST_PUZZLE
+    j continueMove
+needWater:
+    li  $t0, 0
+    sw  $t0, SET_RESOURCE_TYPE
+    la  $t0, puzzleChunk
+    sw  $t0, REQUEST_PUZZLE
+    j continueMove
     
 #####================================#####
 #             Puzzle Solver
@@ -272,6 +290,9 @@ turnAround:
 # sw $t0, SET_RESOURCE_TYPE
 # la $t0, puzzleChunk
 # sw $t0, REQUEST_PUZZLE
+
+# NOTE:  The Submission is automatically submitted at the end of the puzzles solver.
+
 
 
 .globl convert_highest_bit_to_int
@@ -483,6 +504,15 @@ get_unassigned_position_for_begin:
 get_unassigned_position_return:
   jr    $ra
   
+ .globl is_complete
+is_complete:
+  lw    $t0, 0($a0)       # solution->size
+  lw    $t1, 0($a1)       # puzzle->size
+  mul   $t1, $t1, $t1     # puzzle->size * puzzle->size
+  move    $v0, $0
+  seq   $v0, $t0, $t1
+  j     $ra
+  
   
   .globl recursive_backtracking
 recursive_backtracking:
@@ -495,6 +525,19 @@ recursive_backtracking:
   sw    $s2, 20($sp)    # 0x1 << (val - 1)
                         # sizeof(Puzzle) = 8
                         # sizeof(Cell [81]) = 648
+                        
+# ZERO OUT SOLUTION STRUCT:
+
+  la $t0, solutionChunk
+  sw $0, 0($t0)          # zero out solution->size
+  still_has_assignments:
+    addi $t0, 4          # increment the assignment struct
+    bge $t0, 324, done_zeroing
+    sw $0, 0($t0)
+    j still_has_assignments
+  done_zeroing:
+
+
   jal   is_complete
   bne   $v0, $0, recursive_backtracking_return_one
   lw    $a0, 4($sp)     # solution
@@ -569,6 +612,11 @@ recursive_backtracking_return:
   lw    $s1, 16($sp)
   lw    $s2, 20($sp)
   add   $sp, $sp, 680
+  # ADDING CODE TO SUBMIT SOLUTION:
+  la $t0, solutionChunk
+  la $t1, SUBMIT_SOLUTION
+  sw $t0, 0($t1)
+ 
   jr    $ra
 
     
