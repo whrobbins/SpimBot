@@ -622,5 +622,103 @@ recursive_backtracking_return:
     
 # END OF PUZZLE SOLVER
 
+
     
+#####================================#####
+#            On Fire Interrupt
+#####================================#####
+
+#Mostly from lab 10.2
+
+fire_interrupt:
+  sw $a1, 0xffff0050($0)        #acknowledge fire interrupt
+  lw $t3, GET_FIRE_LOC          #$t3 = fire location
+
+  j fire_move_x
+
+fire_move_x:                    #manages x movements
+  lw $a0, BOT_X
+  srl $t0, $t3, 16               #getting the fire's x (with respect to 10x10)
+  li $t1, 30                     #$t1 = x-size of each block
+  div $a0, $t1                    #converting bot's x to 10x10 system
+  mflo $t1
+  beq $t0, $t1, fire_move_y       #in the right spot, move on to y
+  blt $t1, $t0, fire_move_pos_x   #needs to move more in the positive x
+  bgt $t1, $t0, fire_move_neg_x
+  j fire_move_y
+
+fire_move_pos_x:                #moves in the positive x
+  sw $0, ANGLE
+  li $a0, 1
+  sw $a0, ANGLE_CONTROL
+  li $a0, 10
+  sw $a0, VELOCITY
+  j move_x
+
+fire_move_neg_x:                #moves in the negative x
+  li $a0, 180
+  sw $a0, ANGLE
+  li $a0, 1
+  sw $a0, ANGLE_CONTROL
+  li $a0, 10
+  sw $a0, VELOCITY
+  j fire_move_x
+
+fire_move_y:                    #manages y movements
+  lw $a0, BOT_Y
+  and $t0, $t3, 0x0000ffff
+  li $t1, 30
+  div $a0, $t1
+  mflo $t1
+  beq $t0, $t1, put_out
+  blt $t1, $t0, move_pos_y
+  bgt $t1, $t0, move_neg_y
+  j put_out
+
+fire_move_pos_y:                #moves in the positive y
+  li $a0, 90
+  sw $a0, ANGLE
+  li $a0, 1
+  sw $a0, ANGLE_CONTROL
+  li $a0, 10
+  sw $a0, VELOCITY
+  j fire_move_y
+
+fire_move_neg_y:                #moves in the negative y
+  li $a0, 270
+  sw $a0, ANGLE
+  li $a0, 1
+  sw $a0, ANGLE_CONTROL
+  li $a0, 10
+  sw $a0, VELOCITY
+  j fire_move_y
+
+fire_put_out:                   #puts out the fire
+  sw $0, PUT_OUT_FIRE
+  j interrupt_dispatch
+
+
+
+
+#####================================#####
+#            Harveset Interrupt
+#####================================#####
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
