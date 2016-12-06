@@ -143,8 +143,8 @@ moveToStart:
     lw  $t4, BOT_Y
     div $t4, $t2
     mflo $t4                #t4 = Bot Ypos in grid
-    li  $t2, 0
-    beq $t4, $t2, moveToStartX   #Once hits 2nd row, it should be at the starting block
+    li  $t2, 0              #check if it's in the top row
+    beq $t4, $t2, moveToStartX   #Once hits top row, it should be at the starting Y
     j moveToStart           #TODO: Replace atStart with actual jump spot
 moveToStartX:
     li  $t2, 0
@@ -157,35 +157,33 @@ moveToStartX:
     lw  $t4, BOT_X
     div $t4, $t2
     mflo $t4                #t4 = Bot Ypos in grid
-    li  $t2, 9
-    bge $t4, $t2, moveAlong
+    li  $t2, 9              #checks if in right column
+    bge $t4, $t2, moveAlong     #starts movement if in rightmost column
     j moveToStartX
     
 moveAlong:                  #initial angle set from start position
     li  $t2, 0
     sw  $t2, ANGLE($0)
     li  $t2, 1
-    sw  $t2, ANGLE_CONTROL($0)
+    sw  $t2, ANGLE_CONTROL($0)          
 continueMove:
     lw  $t1, BOT_Y($0)
     lw $t7, BOT_X($0)
     li  $t2, 30
     div $t1, $t2
-    mflo $t1
+    mflo $t1                  #bot y with respect to 10x10
     div $t7, $t2
-    mflo $t7
-    beq $t1, 0, skip270
+    mflo $t7                  #bot x with respect to 10x10
+    beq $t1, 0, skip270       #if bot is in block 8,9 (bottom left of our circuit) it will not turn with bonk, we need to make it turn
     bgt $t7, 8, skip270
-    li $t6, 270
+    li $t6, 270               #this code allows it to turn without bonk
     li $t5, 1
     sw $t6, ANGLE($0)
     sw $t5, ANGLE_CONTROL($0)
 skip270:
-    li  $t2, 10
+    li  $t2, 10  
     sw  $t2, VELOCITY($0)
-    sw $0, SEED_TILE($0)
-    sw $0, WATER_TILE($0)
-
+    sw $0, SEED_TILE($0)          #plant seed
 
     #This code not needed
     #lw  $t1, BOT_X($0)
@@ -196,6 +194,7 @@ skip270:
     #blt $t1, $t3, turnAround        #Turn around when it passes square 2
     j continueMove
 turnAround:
+    #CURRENTLY NOT IN USE
     #TODO: Add puzzle solving when it hits an edge
     li  $t2, 0
     sw  $t2, ANGLE_CONTROL($0)
@@ -812,7 +811,7 @@ harvest_tile:                   #puts out the fire
 
 
 bonk_interrupt:
-  sw $a0, BONK_ACK($0)
+  sw $a0, BONK_ACK($0)                  #turns the bot 90degrees to its right
   li $t0, 90
   sw $t0, ANGLE($0)
   sw $0, ANGLE_CONTROL($0)
