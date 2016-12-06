@@ -59,7 +59,7 @@ REQUEST_PUZZLE_INT_MASK = 0x800
 main:
     # go wild
     # the world is your oyster :)
-    sw $0 , VELOCITY
+    sw $0 , VELOCITY($0)
     li $t4, TIMER_MASK                         # timer interrupt enable
     or $t4, $t4, BONK_MASK                    # bonk interrupt enable
     or $t4, $t4, ON_FIRE_MASK                 # on fire interrupt enable
@@ -76,8 +76,8 @@ main:
 
 
 loadPositionStart:
-    lw $t0, BOT_X          #t0 = Bot Xpos - StartXpos in units
-    lw $t1, BOT_Y          #t2 = Bot Ypos - StartYpos in units
+    lw $t0, BOT_X($0)          #t0 = Bot Xpos - StartXpos in units
+    lw $t1, BOT_Y($0)          #t2 = Bot Ypos - StartYpos in units
     sub $t0, $t0, 45
     sub $t1, $t1, 45
     
@@ -133,62 +133,94 @@ loadPositionStart:
 #    sw  $t3, ANGLE          #Set ANGLE to arctan of y/x
 
 moveToStart:
+    li  $t2, 270
+    sw  $t2, ANGLE($0)
     li  $t2, 1
-    sw  $t2, ANGLE_CONTROL  #ANGLE_CONTROL = ABSOLUTE
+    sw  $t2, ANGLE_CONTROL($0)  #ANGLE_CONTROL = ABSOLUTE
     li  $t2, 10
-    sw  $t2, VELOCITY       #VELOCITY = MAX
+    sw  $t2, VELOCITY($0)       #VELOCITY = MAX
     li  $t2, 30
     lw  $t4, BOT_Y
-    div $t4, $t4, $t2
+    div $t4, $t2
     mflo $t4                #t4 = Bot Ypos in grid
-    li  $t2, 2
-    beq $t2, 2, moveAlong   #Once hits 2nd row, it should be at the starting block
+    li  $t2, 0
+    beq $t4, $t2, moveToStartX   #Once hits 2nd row, it should be at the starting block
     j moveToStart           #TODO: Replace atStart with actual jump spot
-    
+moveToStartX:
+    li  $t2, 0
+    sw  $t2, ANGLE($0)
+    li  $t2, 1
+    sw  $t2, ANGLE_CONTROL($0)  #ANGLE_CONTROL = ABSOLUTE
+    li  $t2, 10
+    sw  $t2, VELOCITY($0)       #VELOCITY = MAX
+    li  $t2, 30
+    lw  $t4, BOT_X
+    div $t4, $t2
+    mflo $t4                #t4 = Bot Ypos in grid
+    li  $t2, 9
+    bge $t4, $t2, moveAlong
+    j moveToStartX
     
 moveAlong:                  #initial angle set from start position
-    li  $t2, 1
-    sw  $t2, ANGLE_CONTROL
     li  $t2, 0
-    sw  $t2, ANGLE
+    sw  $t2, ANGLE($0)
+    li  $t2, 1
+    sw  $t2, ANGLE_CONTROL($0)
 continueMove:
-    li  $t2, 10
-    sw  $t2, VELOCITY
-    lw  $t1, BOT_X
+    lw  $t1, BOT_Y($0)
+    lw $t7, BOT_X($0)
     li  $t2, 30
-    div $t2, $t1, $t2
-    mflo $t1                        #t2 = Bot Xpos in grid
-    li  $t2, 9
-    li  $t3, 2
-    bgt $t1, $t2, turnAround        #Turn around when it passes square 9
-    blt $t1, $t3, turnAround        #Turn around when it passes square 2
+    div $t1, $t2
+    mflo $t1
+    div $t7, $t2
+    mflo $t7
+    beq $t1, 0, skip270
+    bgt $t7, 8, skip270
+    li $t6, 270
+    li $t5, 1
+    sw $t6, ANGLE($0)
+    sw $t5, ANGLE_CONTROL($0)
+skip270:
+    li  $t2, 10
+    sw  $t2, VELOCITY($0)
+    sw $0, SEED_TILE($0)
+    sw $0, WATER_TILE($0)
+
+
+    #This code not needed
+    #lw  $t1, BOT_X($0)
+    #li  $t2, 30
+    #div $t1, $t2
+    #mflo $t1                        #t2 = Bot Xpos in grid
+    #bgt $t1, $t2, turnAround        #Turn around when it passes square 9
+    #blt $t1, $t3, turnAround        #Turn around when it passes square 2
     j continueMove
 turnAround:
     #TODO: Add puzzle solving when it hits an edge
     li  $t2, 0
-    sw  $t2, ANGLE_CONTROL
+    sw  $t2, ANGLE_CONTROL($0)
     li  $t2, 180
-    sw  $t2, ANGLE
-    lw  $t1, GET_NUM_SEEDS
+    sw  $t2, ANGLE($0)
+    lw  $t1, GET_NUM_SEEDS($0)
     li  $t2, 10
     bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
 needSeeds:
     li  $t0, 1                      #ELSE get seeds
-    sw  $t0, SET_RESOURCE_TYPE
+    sw  $t0, SET_RESOURCE_TYPE($0)
     la  $t0, puzzleChunk
-    sw  $t0, REQUEST_PUZZLE
+    sw  $t0, REQUEST_PUZZLE($0)
     j continueMove
 needWater:
     li  $t0, 0
-    sw  $t0, SET_RESOURCE_TYPE
+    sw  $t0, SET_RESOURCE_TYPE($0)
     la  $t0, puzzleChunk
-    sw  $t0, REQUEST_PUZZLE
+    sw  $t0, REQUEST_PUZZLE($0)
     j continueMove
 
 
 
 #####================================#####
-#           Interrupt Handler/Dispatcher
+#        Interrupt Handler/Dispatcher    #
 #####================================#####
 .kdata
 chunkIH:        .space 1600
@@ -224,19 +256,19 @@ interrupt_dispatch:
     mfc0 $k0, $13           #Get cause register
     beq $k0, $zero, done    #by storing to a global variable
     
-    and $a0, $0, Bonk_MASK
+    and $a0, $k0, 0x1000
     bne $a0, 0, bonk_interrupt   #hit an edge
     
-    and $a0, $0, 0x400
+    and $a0, $k0, 0x400
     bne $a0, 0, fire_interrupt   #this girl is on FIRE
     
-    and $a0, $0, 0x2000
+    and $a0, $k0, 0x2000
     bne $a0, 0, max_interrupt      #little spimmy is a grower, not really a shower
     
-    and $a0, $0, 0x8000
+    and $a0, $k0, 0x8000
     bne $a0, 0, timer_interrupt  #the final episode (interrupt based on time)
     
-    and $a0, $0, 0x800
+    and $a0, $k0, 0x800
     bne $a0, 0, puzzle_interrupt
     
     li $v0, 4                       #unhandled interrupt types
@@ -627,8 +659,8 @@ recursive_backtracking_return:
 #Simple linear movement
 
 fire_interrupt:
-  sw $a1, ON_FIRE_ACK        #acknowledge fire interrupt
-  lw $t3, GET_FIRE_LOC          #$t3 = fire location
+  sw $a1, ON_FIRE_ACK($0)       #acknowledge fire interrupt
+  lw $t3, GET_FIRE_LOC($0)         #$t3 = fire location
 
   j fire_move_x
 
@@ -644,24 +676,24 @@ fire_move_x:                    #manages x movements
   j fire_move_y
 
 fire_move_pos_x:                #moves in the positive x
-  sw $0, ANGLE                  #move at 0 degrees (pos x)
+  sw $0, ANGLE($0)                  #move at 0 degrees (pos x)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL         #set to absolute ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)         #set to absolute ANGLE_CONTROL
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j fire_move_x
 
 fire_move_neg_x:                #moves in the negative x
   li $a0, 180
-  sw $a0, ANGLE
+  sw $a0, ANGLE($0)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j fire_move_x
 
 fire_move_y:                    #manages y movements
-  lw $a0, BOT_Y
+  lw $a0, BOT_Y($0)
   and $t0, $t3, 0x0000ffff
   li $t1, 30
   div $a0, $t1
@@ -673,24 +705,24 @@ fire_move_y:                    #manages y movements
 
 fire_move_pos_y:                #moves in the positive y
   li $a0, 90
-  sw $a0, ANGLE
+  sw $a0, ANGLE($0)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j fire_move_y
 
 fire_move_neg_y:                #moves in the negative y
   li $a0, 270
-  sw $a0, ANGLE
+  sw $a0, ANGLE($0)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j fire_move_y
 
 fire_put_out:                   #puts out the fire
-  sw $0, PUT_OUT_FIRE
+  sw $0, PUT_OUT_FIRE($0)
   j interrupt_dispatch
 
 
@@ -704,14 +736,14 @@ fire_put_out:                   #puts out the fire
 #Also does x and y sequentially, want to figure out floating points so can get accurate arctan
 
 max_interrupt:
-  sw $a0, MAX_GROWTH_ACK
-  lw $t3, MAX_GROWTH_TILE
+  sw $a0, MAX_GROWTH_ACK($0)
+  lw $t3, MAX_GROWTH_TILE($0)
 
   j harvest_move_x
 
 harvest_move_x:                    #manages x movements
-  lw $a0, BOT_X
-  srl $t0, $t3, 16               #getting the fire's x (with respect to 10x10)
+  lw $a0, BOT_X($0)
+  srl $t0, $t3, 16               #getting the harvest's x (with respect to 10x10)
   li $t1, 30                     #$t1 = x-size of each block
   div $a0, $t1                    #converting bot's x to 10x10 system
   mflo $t1
@@ -721,24 +753,24 @@ harvest_move_x:                    #manages x movements
   j harvest_move_y
 
 harvest_move_pos_x:                #moves in the positive x
-  sw $0, ANGLE                  #move at 0 degrees (pos x)
+  sw $0, ANGLE($0)                  #move at 0 degrees (pos x)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL         #set to absolute ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)         #set to absolute ANGLE_CONTROL
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j harvest_move_x
 
 harvest_move_neg_x:                #moves in the negative x
   li $a0, 180
-  sw $a0, ANGLE
+  sw $a0, ANGLE($0)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j harvest_move_x
 
 harvest_move_y:                    #manages y movements
-  lw $a0, BOT_Y
+  lw $a0, BOT_Y($0)
   and $t0, $t3, 0x0000ffff
   li $t1, 30
   div $a0, $t1
@@ -750,24 +782,24 @@ harvest_move_y:                    #manages y movements
 
 harvest_move_pos_y:                #moves in the positive y
   li $a0, 90
-  sw $a0, ANGLE
+  sw $a0, ANGLE($0)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j harvest_move_y
 
 harvest_move_neg_y:                #moves in the negative y
   li $a0, 270
-  sw $a0, ANGLE
+  sw $a0, ANGLE($0)
   li $a0, 1
-  sw $a0, ANGLE_CONTROL
+  sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
-  sw $a0, VELOCITY
+  sw $a0, VELOCITY($0)
   j harvest_move_y
 
 harvest_tile:                   #puts out the fire
-  sw $0, HARVEST_TILE
+  sw $0, HARVEST_TILE($0)
   j interrupt_dispatch
 
 #Finish harvest interrupt
@@ -780,17 +812,12 @@ harvest_tile:                   #puts out the fire
 
 
 bonk_interrupt:
-  sw $a0, BONK_ACK
+  sw $a0, BONK_ACK($0)
+  li $t0, 90
+  sw $t0, ANGLE($0)
+  sw $0, ANGLE_CONTROL($0)
 
-  #li $t0, 180
-  #sw $t0, ANGLE
-  #li $t0, 0
-  #sw $t0, PRINT_INT_ADDR
-  #sw $t0, ANGLE_CONTROL
-  #li $t1, 10
-  #sw $t1, VELOCITY
-  li $t0, -10
-  sw $t0, VELOCITY
+
 
   j interrupt_dispatch
 
@@ -802,7 +829,7 @@ bonk_interrupt:
 #####================================#####
 
 timer_interrupt:
-  sw $a0, TIMER_ACK
+  sw $a0, TIMER_ACK($0)
   j interrupt_dispatch
 
 
@@ -813,7 +840,7 @@ timer_interrupt:
 
 
 puzzle_interrupt:
-  sw $a0, REQUEST_PUZZLE_ACK
+  sw $a0, REQUEST_PUZZLE_ACK($0)
   j interrupt_dispatch
 
 
