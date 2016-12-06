@@ -50,6 +50,8 @@ REQUEST_PUZZLE_INT_MASK = 0x800
 .data
 # data things go here
 .align 2
+puzzleChunk:	.space 4096
+solutionChunk:	.space 328
 
 
 #####================================#####
@@ -80,57 +82,7 @@ loadPositionStart:
     lw $t1, BOT_Y($0)          #t2 = Bot Ypos - StartYpos in units
     sub $t0, $t0, 45
     sub $t1, $t1, 45
-    
-#sb_arctan:
-#    li $v0, 0        # angle = 0;
 
-#    abs $t0, $t0    # get absolute values
-#    abs $t1, $t1
-#    ble $t1, $t0, no_TURN_90      
-
-    ## if (abs(y) > abs(x)) { rotate 90 degrees }
-#    move $t0, $t1    # int temp = y;
-#    neg $t1, $t0    # y = -x;      
-#    move $t0, $t0    # x = temp;    
-#    li $t3, 90        # angle = 90;  
-
-#no_TURN_90:
-#    bgez $t0, pos_x     # skip if (x >= 0)
-
-    ## if (x < 0) 
-#    add $t3, $t3, 180    # angle += 180;
-
-#pos_x:
-#    mtc1 $t0, $f0
-#    mtc1 $t1, $f1
-#    cvt.s.w $f0, $f0    # convert from ints to floats
-#    cvt.s.w $f1, $f1
-    
-#    div.s $f0, $f1, $f0    # float v = (float) y / (float) x;
-
-#    mul.s $f1, $f0, $f0    # v^^2
-#    mul.s $f2, $f1, $f0    # v^^3
-#    l.s $f3, three    # load 5.0
-#    div.s $f3, $f2, $f3    # v^^3/3
-#    sub.s f6, $f0, $f3    # v - v^^3/3
-
-#   mul.s $f4, $f1, $f2    # v^^5
-#    l.s $f5, five    # load 3.0
-#    div.s $f5, $f4, $f5    # v^^5/5
-#    add.s $f6, $f6, $f5    # value = v - v^^3/3 + v^^5/5
-
-#    l.s $f8, PI        # load PI
-#    div.s $f6, $f6, $f8    # value / PI
-#    l.s $f7, F180    # load 180.0
-#    mul.s $f6, $f6, $f7    # 180.0 * value / PI
-
-#    cvt.w.s $f6, $f6    # convert "delta" back to integer
-#    mfc1 $t0, $f6
-#    add $t3, $t3, $t0    # angle += delta
-
-#    li  $t2, 1
-#    sw  $t2, ANGLE_CONTROL  #ANGLE_CONTROL = ABSOLUTE
-#    sw  $t3, ANGLE          #Set ANGLE to arctan of y/x
 
 moveToStart:
     li  $t2, 270
@@ -160,12 +112,14 @@ moveToStartX:
     li  $t2, 9              #checks if in right column
     bge $t4, $t2, moveAlong     #starts movement if in rightmost column
     j moveToStartX
-    
+
 moveAlong:                  #initial angle set from start position
     li  $t2, 0
     sw  $t2, ANGLE($0)
     li  $t2, 1
-    sw  $t2, ANGLE_CONTROL($0)          
+    sw  $t2, ANGLE_CONTROL($0)
+    li  $t4, 0
+    li	$t8, 0		      #Don't reuse t4, t8 throughout movement code
 continueMove:
     lw  $t1, BOT_Y($0)
     lw $t7, BOT_X($0)
@@ -180,14 +134,17 @@ continueMove:
     li $t5, 1
     sw $t6, ANGLE($0)
     sw $t5, ANGLE_CONTROL($0)
+    li $t3, 1
+    beq $t4, $t3, skip270
     lw  $t1, GET_NUM_SEEDS($0)
     li  $t2, 10
     bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
 needSeeds:
-    li  $t0, 1                      #ELSE get seeds
+    li  $t0, 1     	            #ELSE get seeds
     sw  $t0, SET_RESOURCE_TYPE($0)
     la  $t0, puzzleChunk
     sw  $t0, REQUEST_PUZZLE($0)
+    li $t4, 1
     j skip270
 needWater:
     li  $t0, 0
@@ -195,40 +152,26 @@ needWater:
     la  $t0, puzzleChunk
     sw  $t0, REQUEST_PUZZLE($0)
 skip270:
-    li  $t2, 10  
-    sw  $t2, VELOCITY($0)
-    sw $0, SEED_TILE($0)          #plant seed
-
-    #This code not needed
-    #lw  $t1, BOT_X($0)
-    #li  $t2, 30
-    #div $t1, $t2
-    #mflo $t1                        #t2 = Bot Xpos in grid
-    #bgt $t1, $t2, turnAround        #Turn around when it passes square 9
-    #blt $t1, $t3, turnAround        #Turn around when it passes square 2
-    j continueMove
-turnAround:
-    #CURRENTLY NOT IN USE
-    #TODO: Add puzzle solving when it hits an edge
-    li  $t2, 0
-    sw  $t2, ANGLE_CONTROL($0)
-    li  $t2, 180
-    sw  $t2, ANGLE($0)
-    lw  $t1, GET_NUM_SEEDS($0)
     li  $t2, 10
-    bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
-#needSeeds:
-    #li  $t0, 1                      #ELSE get seeds
-    #sw  $t0, SET_RESOURCE_TYPE($0)
-    #la  $t0, puzzleChunk
-    #sw  $t0, REQUEST_PUZZLE($0)
-    #j continueMove
-#needWater:
-    #li  $t0, 0
-    #sw  $t0, SET_RESOURCE_TYPE($0)
-    #la  $t0, puzzleChunk
-    #sw  $t0, REQUEST_PUZZLE($0)
-    #j continueMove
+    sw  $t2, VELOCITY($0)
+    li  $t9, 1
+    beq $t8, $t9, waterTileOnce
+    sw $0, SEED_TILE($0)          #plant seed
+    addi $t8, $t8, 1
+    lw	 $t0, BOT_Y
+    li	 $t1, 30
+    div  $t0, $t1
+    mfhi $t1
+    beq	 $t1, $0, ResetWater
+    j continueMove
+ResetWater:
+    li   $t8, 0
+    j continueMove
+waterTileOnce:
+    addi $t8, $t8, 1
+    li	 $t9, 4
+    sw	 $t9, WATER_TILE($0)
+    j continueMove
 
 
 
@@ -237,8 +180,6 @@ turnAround:
 #####================================#####
 .kdata
 chunkIH:        .space 1600
-puzzleChunk:    .space 4096
-solutionChunk:  .space 328
 non_intrpt_str: .asciiz "Non-interrupt exception\n"
 unhandled_str:  .asciiz "Unhandled interrupt type\n"
 .ktext 0x80000180
@@ -268,33 +209,33 @@ interrupt_handler:
 interrupt_dispatch:
     mfc0 $k0, $13           #Get cause register
     beq $k0, $zero, done    #by storing to a global variable
-    
+
     and $a0, $k0, 0x1000
     bne $a0, 0, bonk_interrupt   #hit an edge
-    
+
     and $a0, $k0, 0x400
     bne $a0, 0, fire_interrupt   #this girl is on FIRE
-    
+
     and $a0, $k0, 0x2000
     bne $a0, 0, max_interrupt      #little spimmy is a grower, not really a shower
-    
+
     and $a0, $k0, 0x8000
     bne $a0, 0, timer_interrupt  #the final episode (interrupt based on time)
-    
+
     and $a0, $k0, 0x800
     bne $a0, 0, puzzle_interrupt
-    
+
     li $v0, 4                       #unhandled interrupt types
     la $a0, unhandled_str
     syscall
     j done
-    
+
 non_intrpt:
     li $v0, 4
     la $a0, non_intrpt_str
     syscall                         #print out error message
-    j done              
-  
+    j done
+
 #####================================#####
 #                   FIN
 #####================================#####
@@ -317,12 +258,12 @@ done:
     move $at, $k1
 .set at
     eret
-    
-    
 
 
 
-    
+
+
+
 #####================================#####
 #            On Fire Interrupt
 #####================================#####
@@ -459,6 +400,7 @@ harvest_move_pos_y:                #moves in the positive y
   sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
   sw $a0, VELOCITY($0)
+  sw $0, HARVEST_TILE($0)
   j harvest_move_y
 
 harvest_move_neg_y:                #moves in the negative y
@@ -468,6 +410,7 @@ harvest_move_neg_y:                #moves in the negative y
   sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
   sw $a0, VELOCITY($0)
+  #sw $0, HARVEST_TILE($0)
   j harvest_move_y
 
 harvest_tile:                   #puts out the fire
@@ -510,8 +453,13 @@ timer_interrupt:
 #####================================#####
 
 puzzle_interrupt:
-  jal recursive_backtracking
+  la  $a1, puzzleChunk
+  la  $a0, solutionChunk
+  jal start_puzzle
+  #jal recursive_backtracking
   sw $a0, REQUEST_PUZZLE_ACK($0)
+  la $t0, solutionChunk
+  sw $t0, SUBMIT_SOLUTION($zero)
   j interrupt_dispatch
 
 
@@ -521,7 +469,7 @@ puzzle_interrupt:
 
 #####================================#####
 #             Puzzle Solver
-#####================================#####    
+#####================================#####
 
 # NOTE:  Remember to specify which before calling
 # 0 for water, 1 for seeds, 2 for fire starters:
@@ -538,15 +486,20 @@ puzzle_interrupt:
 
 
 .globl convert_highest_bit_to_int
+.globl convert_highest_bit_to_int
 convert_highest_bit_to_int:
-    move  $v0, $0             # result = 0
+    move  $v0, $0   	      # result = 0
+
 chbti_loop:
     beq   $a0, $0, chbti_end
     add   $v0, $v0, 1         # result ++
     sra   $a0, $a0, 1         # domain >>= 1
     j     chbti_loop
+
 chbti_end:
-    jr      $ra
+    jr	  $ra
+
+
 .globl get_domain_for_addition
 get_domain_for_addition:
     sub    $sp, $sp, 20
@@ -558,32 +511,41 @@ get_domain_for_addition:
     move   $s0, $a0                     # s0 = target
     move   $s1, $a1                     # s1 = num_cell
     move   $s2, $a2                     # s2 = domain
+
     move   $a0, $a2
     jal    convert_highest_bit_to_int
     move   $s3, $v0                     # s3 = upper_bound
-    sub    $a0, $0, $s2                    # -domain
+
+    sub    $a0, $0, $s2	                # -domain
     and    $a0, $a0, $s2                # domain & (-domain)
     jal    convert_highest_bit_to_int   # v0 = lower_bound
+	   
     sub    $t0, $s1, 1                  # num_cell - 1
     mul    $t0, $t0, $v0                # (num_cell - 1) * lower_bound
     sub    $t0, $s0, $t0                # t0 = high_bits
     bge    $t0, 0, gdfa_skip0
+
     li     $t0, 0
+
 gdfa_skip0:
     bge    $t0, $s3, gdfa_skip1
+
     li     $t1, 1          
     sll    $t0, $t1, $t0                # 1 << high_bits
     sub    $t0, $t0, 1                  # (1 << high_bits) - 1
     and    $s2, $s2, $t0                # domain & ((1 << high_bits) - 1)
-gdfa_skip1:       
+
+gdfa_skip1:	   
     sub    $t0, $s1, 1                  # num_cell - 1
     mul    $t0, $t0, $s3                # (num_cell - 1) * upper_bound
     sub    $t0, $s0, $t0                # t0 = low_bits
     ble    $t0, $0, gdfa_skip2
-    sub    $t0, $t0, 1                  # low_bits - 1
+
+   sub    $t0, $t0, 1                  # low_bits - 1
     sra    $s2, $s2, $t0                # domain >> (low_bits - 1)
     sll    $s2, $s2, $t0                # domain >> (low_bits - 1) << (low_bits - 1)
-gdfa_skip2:       
+
+gdfa_skip2:	   
     move   $v0, $s2                     # return domain
     lw     $ra, 0($sp)
     lw     $s0, 4($sp)
@@ -592,6 +554,8 @@ gdfa_skip2:
     lw     $s3, 16($sp)
     add    $sp, $sp, 20
     jr     $ra
+
+
 .globl get_domain_for_subtraction
 get_domain_for_subtraction:
     li     $t0, 1              
@@ -600,30 +564,38 @@ get_domain_for_subtraction:
     sll    $t1, $t0, $t1            # 1 << (target * 2)
     or     $t0, $t0, $t1            # t0 = base_mask
     li     $t1, 0                   # t1 = mask
+
 gdfs_loop:
-    beq    $a2, $0, gdfs_loop_end    
+    beq    $a2, $0, gdfs_loop_end	
     and    $t2, $a2, 1              # other_domain & 1
     beq    $t2, $0, gdfs_if_end
+	   
     sra    $t2, $t0, $a0            # base_mask >> target
     or     $t1, $t1, $t2            # mask |= (base_mask >> target)
+
 gdfs_if_end:
     sll    $t0, $t0, 1              # base_mask <<= 1
     sra    $a2, $a2, 1              # other_domain >>= 1
     j      gdfs_loop
+
 gdfs_loop_end:
     and    $v0, $a1, $t1            # domain & mask
-    jr       $ra
+    jr	   $ra
+
+	
 .globl is_single_value_domain
 is_single_value_domain:
     beq    $a0, $0, isvd_zero     # return 0 if domain == 0
-    sub    $t0, $a0, 1              # (domain - 1)
+    sub    $t0, $a0, 1	          # (domain - 1)
     and    $t0, $t0, $a0          # (domain & (domain - 1))
     bne    $t0, $0, isvd_zero     # return 0 if (domain & (domain - 1)) != 0
     li     $v0, 1
-    jr       $ra
-isvd_zero:       
-    li       $v0, 0
-    jr       $ra
+    jr	   $ra
+
+isvd_zero:	   
+    li	   $v0, 0
+    jr	   $ra
+
 .globl forward_checking
 forward_checking:
   sub   $sp, $sp, 24
@@ -682,6 +654,7 @@ fc_for_row_continue:
   add   $t1, $t1, 1     # row++
   j     fc_for_row
 fc_end_for_row:
+
   li    $s0, 0          # i = 0
 fc_for_i:
   lw    $t2, 4($a1)
@@ -722,6 +695,8 @@ fc_return:
   lw    $s2, 20($sp)
   add   $sp, $sp, 24
   jr    $ra
+
+
 .globl get_unassigned_position
 get_unassigned_position:
   li    $v0, 0            # unassigned_pos = 0
@@ -738,15 +713,33 @@ get_unassigned_position_for_begin:
   j   get_unassigned_position_for_begin
 get_unassigned_position_return:
   jr    $ra
- .globl is_complete
+
+
+.globl is_complete
 is_complete:
   lw    $t0, 0($a0)       # solution->size
   lw    $t1, 0($a1)       # puzzle->size
   mul   $t1, $t1, $t1     # puzzle->size * puzzle->size
-  move    $v0, $0
+  move	$v0, $0
   seq   $v0, $t0, $t1
   j     $ra
-  .globl recursive_backtracking
+	
+ .globl start_puzzle
+ start_puzzle:
+
+  la $a0, solutionChunk                              # ZERO OUT SOLUTION STRUCT:
+  la $a1, puzzleChunk
+  sw $0, 0($a0)          # zero out solution->size
+  li $t9, 0
+  still_has_assignments:
+    addi $a0, 4          # increment the assignment struct
+    addi $t9, 4
+    bge $t9, 324, done_zeroing
+    sw $0, 0($a0)
+    j still_has_assignments
+  done_zeroing:                                      # DONE ZEROING OUT SOLN
+    la $a0, solutionChunk
+.globl recursive_backtracking
 recursive_backtracking:
   sub   $sp, $sp, 680
   sw    $ra, 0($sp)
@@ -757,14 +750,7 @@ recursive_backtracking:
   sw    $s2, 20($sp)    # 0x1 << (val - 1)
                         # sizeof(Puzzle) = 8
                         # sizeof(Cell [81]) = 648
-  la $t0, solutionChunk                              # ZERO OUT SOLUTION STRUCT:
-  sw $0, 0($t0)          # zero out solution->size
-  still_has_assignments:
-    addi $t0, 4          # increment the assignment struct
-    bge $t0, 324, done_zeroing
-    sw $0, 0($t0)
-    j still_has_assignments
-  done_zeroing:                                      # DONE ZEROING OUT SOLN
+
   jal   is_complete
   bne   $v0, $0, recursive_backtracking_return_one
   lw    $a0, 4($sp)     # solution
@@ -801,12 +787,14 @@ recursive_backtracking_for_loop:
   jal   clone           # clone(puzzle, &puzzle_copy)
   mul   $t0, $s0, 8     # !!! grid size 8
   lw    $t1, 28($sp)
+  
   add   $t1, $t1, $t0   # &puzzle_copy.grid[position]
   sw    $s2, 0($t1)     # puzzle_copy.grid[position].domain = 0x1 << (val - 1);
   move  $a0, $s0
   add   $a1, $sp, 24
   jal   forward_checking  # forward_checking(position, &puzzle_copy)
   beq   $v0, $0, recursive_backtracking_skip
+
   lw    $a0, 4($sp)     # solution
   add   $a1, $sp, 24    # &puzzle_copy
   jal   recursive_backtracking
@@ -837,16 +825,149 @@ recursive_backtracking_return:
   lw    $s1, 16($sp)
   lw    $s2, 20($sp)
   add   $sp, $sp, 680
-  # ADDING CODE TO SUBMIT SOLUTION:
-  la $t0, solutionChunk
-  la $t1, SUBMIT_SOLUTION
-  sw $t0, 0($t1)
  
   jr    $ra
 
-    
+
 # END OF PUZZLE SOLVER
 
+.globl clone
+clone:
+
+    lw  $t0, 0($a0)
+    sw  $t0, 0($a1)
+
+    mul $t0, $t0, $t0
+    mul $t0, $t0, 2 # two words in one grid
+
+    lw  $t1, 4($a0) # &puzzle(ori).grid
+    lw  $t2, 4($a1) # &puzzle(clone).grid
+
+    li  $t3, 0 # i = 0;
+clone_for_loop:
+    bge  $t3, $t0, clone_for_loop_end
+    sll $t4, $t3, 2 # i * 4
+    add $t5, $t1, $t4 # puzzle(ori).grid ith word
+    lw   $t6, 0($t5)
+
+    add $t5, $t2, $t4 # puzzle(clone).grid ith word
+    sw   $t6, 0($t5)
+
+    addi $t3, $t3, 1 # i++
+
+    j    clone_for_loop
+clone_for_loop_end:
+
+    jr  $ra
+
+.globl get_domain_for_cell
+get_domain_for_cell:
+    # save registers
+    sub $sp, $sp, 36
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    sw $s6, 28($sp)
+    sw $s7, 32($sp)
+
+    li $t0, 0 # valid_domain
+    lw $t1, 4($a1) # puzzle->grid (t1 free)
+    sll $t2, $a0, 3 # position*8 (actual offset) (t2 free)
+    add $t3, $t1, $t2 # &puzzle->grid[position]
+    lw  $t4, 4($t3) # &puzzle->grid[position].cage
+    lw  $t5, 0($t4) # puzzle->grid[posiition].cage->operation
+
+    lw $t2, 4($t4) # puzzle->grid[position].cage->target
+
+    move $s0, $t2   # remain_target = $s0  *!*!
+    lw $s1, 8($t4) # remain_cell = $s1 = puzzle->grid[position].cage->num_cell
+    lw $s2, 0($t3) # domain_union = $s2 = puzzle->grid[position].domain
+    move $s3, $t4 # puzzle->grid[position].cage
+    li $s4, 0   # i = 0
+    move $s5, $t1 # $s5 = puzzle->grid
+    move $s6, $a0 # $s6 = position
+    # move $s7, $s2 # $s7 = puzzle->grid[position].domain
+
+    bne $t5, 0, gdfc_check_else_if
+
+    li $t1, 1
+    sub $t2, $t2, $t1 # (puzzle->grid[position].cage->target-1)
+    sll $v0, $t1, $t2 # valid_domain = 0x1 << (prev line comment)
+    j gdfc_end # somewhere!!!!!!!!
+
+gdfc_check_else_if:
+    bne $t5, '+', gdfc_check_else
+
+gdfc_else_if_loop:
+    lw $t5, 8($s3) # puzzle->grid[position].cage->num_cell
+    bge $s4, $t5, gdfc_for_end # branch if i >= puzzle->grid[position].cage->num_cell
+    sll $t1, $s4, 2 # i*4
+    lw $t6, 12($s3) # puzzle->grid[position].cage->positions
+    add $t1, $t6, $t1 # &puzzle->grid[position].cage->positions[i]
+    lw $t1, 0($t1) # pos = puzzle->grid[position].cage->positions[i]
+    add $s4, $s4, 1 # i++
+
+    sll $t2, $t1, 3 # pos * 8
+    add $s7, $s5, $t2 # &puzzle->grid[pos]
+    lw  $s7, 0($s7) # puzzle->grid[pos].domain
+
+    beq $t1, $s6 gdfc_else_if_else # branch if pos == position
 
 
 
+    move $a0, $s7 # $a0 = puzzle->grid[pos].domain
+    jal is_single_value_domain
+    bne $v0, 1 gdfc_else_if_else # branch if !is_single_value_domain()
+    move $a0, $s7
+    jal convert_highest_bit_to_int
+    sub $s0, $s0, $v0 # remain_target -= convert_highest_bit_to_int
+    addi $s1, $s1, -1 # remain_cell -= 1
+    j gdfc_else_if_loop
+gdfc_else_if_else:
+    or $s2, $s2, $s7 # domain_union |= puzzle->grid[pos].domain
+    j gdfc_else_if_loop
+
+gdfc_for_end:
+    move $a0, $s0
+    move $a1, $s1
+    move $a2, $s2
+    jal get_domain_for_addition # $v0 = valid_domain = get_domain_for_addition()
+    j gdfc_end
+
+gdfc_check_else:
+    lw $t3, 12($s3) # puzzle->grid[position].cage->positions
+    lw $t0, 0($t3) # puzzle->grid[position].cage->positions[0]
+    lw $t1, 4($t3) # puzzle->grid[position].cage->positions[1]
+    xor $t0, $t0, $t1
+    xor $t0, $t0, $s6 # other_pos = $t0 = $t0 ^ position
+    lw $a0, 4($s3) # puzzle->grid[position].cage->target
+
+    sll $t2, $s6, 3 # position * 8
+    add $a1, $s5, $t2 # &puzzle->grid[position]
+    lw  $a1, 0($a1) # puzzle->grid[position].domain
+    # move $a1, $s7
+
+    sll $t1, $t0, 3 # other_pos*8 (actual offset)
+    add $t3, $s5, $t1 # &puzzle->grid[other_pos]
+    lw $a2, 0($t3)  # puzzle->grid[other_pos].domian
+
+    jal get_domain_for_subtraction # $v0 = valid_domain = get_domain_for_subtraction()
+    # j gdfc_end
+gdfc_end:
+# restore registers
+
+    lw $ra, 0($sp)
+    lw $s0, 4($sp)
+    lw $s1, 8($sp)
+    lw $s2, 12($sp)
+    lw $s3, 16($sp)
+    lw $s4, 20($sp)
+    lw $s5, 24($sp)
+    lw $s6, 28($sp)
+    lw $s7, 32($sp)
+    add $sp, $sp, 36
+    jr $ra
