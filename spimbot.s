@@ -49,7 +49,7 @@ REQUEST_PUZZLE_INT_MASK = 0x800
 
 .data
 # data things go here
-#.align 2
+.align 2
 
 
 #####================================#####
@@ -60,109 +60,16 @@ main:
     # go wild
     # the world is your oyster :)
     sw $0 , VELOCITY
-    li $t4, 0x8000               # timer interrupt enable
-    or $t4, $t4, 0x1000          # bonk interrupt enable
-    or $t4, $t4, 0x400           # on fire interrupt enable
-    or $t4, $t4, 0x2000          # max growth interrupt
-    or $t4, $t4, 0x800           # request puzzle interrupt
+    li $t4, TIMER_MASK                         # timer interrupt enable
+    or $t4, $t4, BONK_MASK                    # bonk interrupt enable
+    or $t4, $t4, ON_FIRE_MASK                 # on fire interrupt enable
+    or $t4, $t4, MAX_GROWTH_INT_MASK          # max growth interrupt
+    or $t4, $t4, REQUEST_PUZZLE_INT_MASK      # request puzzle interrupt
     or $t4, $t4, 1
     mtc0 $t4, $12
-    j    main
-
-infinite:
-    j infinite
 
 
-#####================================#####
-#           Interrupt Handler/Dispatcher
-#####================================#####
-.kdata
-chunkIH:        .space 1600
-puzzleChunk:    .space 4096
-solutionChunk:  .space 328
-non_intrpt_str: .asciiz "Non-interrupt exception\n"
-unhandled_str:  .asciiz "Unhandled interrut type\n"
-.ktext 0x80000180
-interrupt_handler:
-.set noat
-        move    $k1, $at
-.set at
-    la  $k0, chunkIH
-    sw  $a0, 0($k0)
-    sw  $a1, 4($k0)
-    sw  $t1, 8($k0)
-    sw  $t2, 12($k0)
-    sw  $t3, 16($k0)
-    sw  $t4, 20($k0)
-    sw  $t5, 24($k0)
-    sw  $t6, 28($k0)
-    sw  $t7, 32($k0)
-    sw  $t9, 36($k0)
-    sw  $v0, 40($k0)
 
-    mfc0 $k0, $13
-    srl $a0, $k0, 2
-    and $a0, $a0, 0xf
-    bne $a0, 0, non_intrpt
-    lw $t9, GET_FIRE_LOC
-
-
-interrupt_dispatch:
-    sw $0, VELOCITY         #Stop movement as interrupt may switch direction
-    mfc0 $k0, $13           #Get cause register
-    beq $k0, $zero, done    #by storing to a global variable
-    
-    and $a0, $0, 0x1000
-    bne $a0, 0, bonk_interrupt   #hit an edge
-    
-    and $a0, $0, 0x400
-    bne $a0, 0, fire_interrupt   #this girl is on FIRE
-    
-    and $a0, $0, 0x2000
-    bne $a0, 0, max_interrupt
-    
-    and $a0, $0, 0x8000
-    bne $a0, 0, timer_interrupt  #the final episode (interrupt based on time)
-    
-    and $a0, $0, 0x800
-    bne $a0, 0, puzzle_interrupt
-    
-    li $v0, 4                       #unhandled interrupt types
-    la $a0, unhandled_str
-    syscall
-    j done
-    
-non_intrpt:
-    li $v0, 4
-    la $a0, non_intrpt_str
-    syscall                         #print out error message
-    j done              
-  
-#####================================#####
-#                   FIN
-#####================================#####
-
-done:
-    la $k0, chunkIH
-    lw  $a0, 0($k0)
-    lw  $a1, 4($k0)
-    lw  $t1, 8($k0)
-    lw  $t2, 12($k0)
-    lw  $t3, 16($k0)
-    lw  $t4, 20($k0)
-    lw  $t5, 24($k0)
-    lw  $t6, 28($k0)
-    lw  $t7, 32($k0)
-    lw  $t9, 36($k0)
-    lw  $v0, 40($k0)
-
-.set noat
-    move $at, $k1
-.set at
-    eret
-    
-    
-    
 #####================================#####
 #            Start Movement
 #####================================#####
@@ -174,57 +81,57 @@ loadPositionStart:
     sub $t0, $t0, 45
     sub $t1, $t1, 45
     
-sb_arctan:
-    li $v0, 0        # angle = 0;
+#sb_arctan:
+#    li $v0, 0        # angle = 0;
 
-    abs $t0, $t0    # get absolute values
-    abs $t1, $t1
-    ble $t1, $t0, no_TURN_90      
+#    abs $t0, $t0    # get absolute values
+#    abs $t1, $t1
+#    ble $t1, $t0, no_TURN_90      
 
     ## if (abs(y) > abs(x)) { rotate 90 degrees }
-    move $t0, $t1    # int temp = y;
-    neg $t1, $t0    # y = -x;      
-    move $t0, $t0    # x = temp;    
-    li $t3, 90        # angle = 90;  
+#    move $t0, $t1    # int temp = y;
+#    neg $t1, $t0    # y = -x;      
+#    move $t0, $t0    # x = temp;    
+#    li $t3, 90        # angle = 90;  
 
-no_TURN_90:
-    bgez $t0, pos_x     # skip if (x >= 0)
+#no_TURN_90:
+#    bgez $t0, pos_x     # skip if (x >= 0)
 
     ## if (x < 0) 
-    add $t3, $t3, 180    # angle += 180;
+#    add $t3, $t3, 180    # angle += 180;
 
-pos_x:
-    mtc1 $t0, $f0
-    mtc1 $t1, $f1
-    cvt.s.w $f0, $f0    # convert from ints to floats
-    cvt.s.w $f1, $f1
+#pos_x:
+#    mtc1 $t0, $f0
+#    mtc1 $t1, $f1
+#    cvt.s.w $f0, $f0    # convert from ints to floats
+#    cvt.s.w $f1, $f1
     
-    div.s $f0, $f1, $f0    # float v = (float) y / (float) x;
+#    div.s $f0, $f1, $f0    # float v = (float) y / (float) x;
 
-    mul.s $f1, $f0, $f0    # v^^2
-    mul.s $f2, $f1, $f0    # v^^3
-    l.s $f3, three    # load 5.0
-    div.s $f3, $f2, $f3    # v^^3/3
-    sub.s f6, $f0, $f3    # v - v^^3/3
+#    mul.s $f1, $f0, $f0    # v^^2
+#    mul.s $f2, $f1, $f0    # v^^3
+#    l.s $f3, three    # load 5.0
+#    div.s $f3, $f2, $f3    # v^^3/3
+#    sub.s f6, $f0, $f3    # v - v^^3/3
 
-    mul.s $f4, $f1, $f2    # v^^5
-    l.s $f5, five    # load 3.0
-    div.s $f5, $f4, $f5    # v^^5/5
-    add.s $f6, $f6, $f5    # value = v - v^^3/3 + v^^5/5
+#   mul.s $f4, $f1, $f2    # v^^5
+#    l.s $f5, five    # load 3.0
+#    div.s $f5, $f4, $f5    # v^^5/5
+#    add.s $f6, $f6, $f5    # value = v - v^^3/3 + v^^5/5
 
-    l.s $f8, PI        # load PI
-    div.s $f6, $f6, $f8    # value / PI
-    l.s $f7, F180    # load 180.0
-    mul.s $f6, $f6, $f7    # 180.0 * value / PI
+#    l.s $f8, PI        # load PI
+#    div.s $f6, $f6, $f8    # value / PI
+#    l.s $f7, F180    # load 180.0
+#    mul.s $f6, $f6, $f7    # 180.0 * value / PI
 
-    cvt.w.s $f6, $f6    # convert "delta" back to integer
-    mfc1 $t0, $f6
-    add $t3, $t3, $t0    # angle += delta
+#    cvt.w.s $f6, $f6    # convert "delta" back to integer
+#    mfc1 $t0, $f6
+#    add $t3, $t3, $t0    # angle += delta
 
-    li  $t2, 1
-    sw  $t2, ANGLE_CONTROL  #ANGLE_CONTROL = ABSOLUTE
-    sw  $t3, ANGLE          #Set ANGLE to arctan of y/x
-    
+#    li  $t2, 1
+#    sw  $t2, ANGLE_CONTROL  #ANGLE_CONTROL = ABSOLUTE
+#    sw  $t3, ANGLE          #Set ANGLE to arctan of y/x
+
 moveToStart:
     li  $t2, 1
     sw  $t2, ANGLE_CONTROL  #ANGLE_CONTROL = ABSOLUTE
@@ -277,6 +184,95 @@ needWater:
     la  $t0, puzzleChunk
     sw  $t0, REQUEST_PUZZLE
     j continueMove
+
+
+
+#####================================#####
+#           Interrupt Handler/Dispatcher
+#####================================#####
+.kdata
+chunkIH:        .space 1600
+puzzleChunk:    .space 4096
+solutionChunk:  .space 328
+non_intrpt_str: .asciiz "Non-interrupt exception\n"
+unhandled_str:  .asciiz "Unhandled interrupt type\n"
+.ktext 0x80000180
+interrupt_handler:
+.set noat
+    move  $k1, $at
+.set at
+    la  $k0, chunkIH
+    sw  $a0, 0($k0)
+    sw  $a1, 4($k0)
+    sw  $t1, 8($k0)
+    sw  $t2, 12($k0)
+    sw  $t3, 16($k0)
+    sw  $t4, 20($k0)
+    sw  $t5, 24($k0)
+    sw  $t6, 28($k0)
+    sw  $t7, 32($k0)
+    sw  $t9, 36($k0)
+    sw  $v0, 40($k0)
+
+    mfc0 $k0, $13
+    srl $a0, $k0, 2
+    and $a0, $a0, 0xf
+    bne $a0, 0, non_intrpt
+
+
+interrupt_dispatch:
+    mfc0 $k0, $13           #Get cause register
+    beq $k0, $zero, done    #by storing to a global variable
+    
+    and $a0, $0, Bonk_MASK
+    bne $a0, 0, bonk_interrupt   #hit an edge
+    
+    and $a0, $0, 0x400
+    bne $a0, 0, fire_interrupt   #this girl is on FIRE
+    
+    and $a0, $0, 0x2000
+    bne $a0, 0, max_interrupt      #little spimmy is a grower, not really a shower
+    
+    and $a0, $0, 0x8000
+    bne $a0, 0, timer_interrupt  #the final episode (interrupt based on time)
+    
+    and $a0, $0, 0x800
+    bne $a0, 0, puzzle_interrupt
+    
+    li $v0, 4                       #unhandled interrupt types
+    la $a0, unhandled_str
+    syscall
+    j done
+    
+non_intrpt:
+    li $v0, 4
+    la $a0, non_intrpt_str
+    syscall                         #print out error message
+    j done              
+  
+#####================================#####
+#                   FIN
+#####================================#####
+
+done:
+    la $k0, chunkIH
+    lw  $a0, 0($k0)
+    lw  $a1, 4($k0)
+    lw  $t1, 8($k0)
+    lw  $t2, 12($k0)
+    lw  $t3, 16($k0)
+    lw  $t4, 20($k0)
+    lw  $t5, 24($k0)
+    lw  $t6, 28($k0)
+    lw  $t7, 32($k0)
+    lw  $t9, 36($k0)
+    lw  $v0, 40($k0)
+
+.set noat
+    move $at, $k1
+.set at
+    eret
+    
     
 #####================================#####
 #             Puzzle Solver
@@ -786,16 +782,39 @@ harvest_tile:                   #puts out the fire
 bonk_interrupt:
   sw $a0, BONK_ACK
 
-  li $t0, 180
-  sw $t0, ANGLE
-  li $t0, 1
-  sw $t0, ANGLE_CONTROL
+  #li $t0, 180
+  #sw $t0, ANGLE
+  #li $t0, 0
+  #sw $t0, PRINT_INT_ADDR
+  #sw $t0, ANGLE_CONTROL
+  #li $t1, 10
+  #sw $t1, VELOCITY
+  li $t0, -10
+  sw $t0, VELOCITY
 
-  j interrupt
+  j interrupt_dispatch
 
 #Finish Bonk Interrupt
 
 
+#####================================#####
+#            Timer Interrupt
+#####================================#####
+
+timer_interrupt:
+  sw $a0, TIMER_ACK
+  j interrupt_dispatch
+
+
+
+#####================================#####
+#            Puzzle Interrupt
+#####================================#####
+
+
+puzzle_interrupt:
+  sw $a0, REQUEST_PUZZLE_ACK
+  j interrupt_dispatch
 
 
 
