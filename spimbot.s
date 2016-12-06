@@ -82,7 +82,8 @@ loadPositionStart:
     lw $t1, BOT_Y($0)          #t2 = Bot Ypos - StartYpos in units
     sub $t0, $t0, 45
     sub $t1, $t1, 45
-
+    li  $t4, 0
+    li  $t8, 0
 
 moveToStart:
     li  $t2, 270
@@ -95,9 +96,21 @@ moveToStart:
     lw  $t4, BOT_Y
     div $t4, $t2
     mflo $t4                #t4 = Bot Ypos in grid
+    mfhi $t3
     li  $t2, 0              #check if it's in the top row
     beq $t4, $t2, moveToStartX   #Once hits top row, it should be at the starting Y
+    beq  $t3, $0, getSeedStart
     j moveToStart           #TODO: Replace atStart with actual jump spot
+getSeedStart:
+    li  $t7, 5
+    bgt $t8, $t7, moveToStart
+    li  $t0, 1     	            #ELSE get seeds
+    sw  $t0, SET_RESOURCE_TYPE($0)
+    la  $t0, puzzleChunk
+    sw  $t0, REQUEST_PUZZLE($0)
+    addi $t8, $t8, 1
+    j moveToStart
+
 moveToStartX:
     li  $t2, 0
     sw  $t2, ANGLE($0)
@@ -134,23 +147,23 @@ continueMove:
     li $t5, 1
     sw $t6, ANGLE($0)
     sw $t5, ANGLE_CONTROL($0)
-    li $t3, 1
-    beq $t4, $t3, skip270
+    li $t3, 3
+    bge $t4, $t3, skip270
     lw  $t1, GET_NUM_SEEDS($0)
     li  $t2, 10
     bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
 needSeeds:
-    li  $t0, 1     	            #ELSE get seeds
-    sw  $t0, SET_RESOURCE_TYPE($0)
-    la  $t0, puzzleChunk
-    sw  $t0, REQUEST_PUZZLE($0)
-    li $t4, 1
-    j skip270
+    #li  $t0, 1     	            #ELSE get seeds
+    #sw  $t0, SET_RESOURCE_TYPE($0)
+    #la  $t0, puzzleChunk
+    #sw  $t0, REQUEST_PUZZLE($0)
+    #li $t4, 1
 needWater:
     li  $t0, 0
     sw  $t0, SET_RESOURCE_TYPE($0)
     la  $t0, puzzleChunk
     sw  $t0, REQUEST_PUZZLE($0)
+    add  $t4, $t4, 1
 skip270:
     li  $t2, 10
     sw  $t2, VELOCITY($0)
@@ -169,10 +182,9 @@ ResetWater:
     j continueMove
 waterTileOnce:
     addi $t8, $t8, 1
-    li	 $t9, 4
+    li	 $t9, 10
     sw	 $t9, WATER_TILE($0)
     j continueMove
-
 
 
 #####================================#####
