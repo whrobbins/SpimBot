@@ -180,6 +180,20 @@ continueMove:
     li $t5, 1
     sw $t6, ANGLE($0)
     sw $t5, ANGLE_CONTROL($0)
+    lw  $t1, GET_NUM_SEEDS($0)
+    li  $t2, 10
+    bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
+needSeeds:
+    li  $t0, 1                      #ELSE get seeds
+    sw  $t0, SET_RESOURCE_TYPE($0)
+    la  $t0, puzzleChunk
+    sw  $t0, REQUEST_PUZZLE($0)
+    j skip270
+needWater:
+    li  $t0, 0
+    sw  $t0, SET_RESOURCE_TYPE($0)
+    la  $t0, puzzleChunk
+    sw  $t0, REQUEST_PUZZLE($0)
 skip270:
     li  $t2, 10  
     sw  $t2, VELOCITY($0)
@@ -203,18 +217,18 @@ turnAround:
     lw  $t1, GET_NUM_SEEDS($0)
     li  $t2, 10
     bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
-needSeeds:
-    li  $t0, 1                      #ELSE get seeds
-    sw  $t0, SET_RESOURCE_TYPE($0)
-    la  $t0, puzzleChunk
-    sw  $t0, REQUEST_PUZZLE($0)
-    j continueMove
-needWater:
-    li  $t0, 0
-    sw  $t0, SET_RESOURCE_TYPE($0)
-    la  $t0, puzzleChunk
-    sw  $t0, REQUEST_PUZZLE($0)
-    j continueMove
+#needSeeds:
+    #li  $t0, 1                      #ELSE get seeds
+    #sw  $t0, SET_RESOURCE_TYPE($0)
+    #la  $t0, puzzleChunk
+    #sw  $t0, REQUEST_PUZZLE($0)
+    #j continueMove
+#needWater:
+    #li  $t0, 0
+    #sw  $t0, SET_RESOURCE_TYPE($0)
+    #la  $t0, puzzleChunk
+    #sw  $t0, REQUEST_PUZZLE($0)
+    #j continueMove
 
 
 
@@ -832,7 +846,6 @@ recursive_backtracking_return:
 
     
 # END OF PUZZLE SOLVER
-
 
 
 
