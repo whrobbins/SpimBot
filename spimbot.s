@@ -140,6 +140,10 @@ moveAlong:                  #initial angle set from start position
     sw  $t2, ANGLE($0)
     li  $t2, 1
     sw  $t2, ANGLE_CONTROL($0)
+    li  $t0, 0  	            #ELSE get seeds
+    sw  $t0, SET_RESOURCE_TYPE($0)
+    la  $t0, puzzleChunk
+    sw  $t0, REQUEST_PUZZLE($0)
     li  $t4, 0
     li	$t8, 0		      #Don't reuse t4, t8 throughout movement code
 continueMove:
@@ -191,7 +195,7 @@ ResetWater:
     j continueMove
 waterTileOnce:
     addi $t8, $t8, 1
-    li	 $t9, 10
+    li	 $t9, 5
     sw	 $t9, WATER_TILE($0)
     j continueMove
 
@@ -332,7 +336,7 @@ fire_move_y:                    #manages y movements
   li $t1, 30
   div $a0, $t1
   mflo $t1
-  beq $t0, $t1, put_out
+  beq $t0, $t1, fire_put_out
   blt $t1, $t0, fire_move_pos_y
   bgt $t1, $t0, fire_move_neg_y
   j put_out
