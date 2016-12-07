@@ -70,6 +70,10 @@ main:
     or $t4, $t4, 1
     mtc0 $t4, $12
 
+	lw $t4, TIMER($0)
+	add $t4, $t4, 2000000
+	sw $t4, TIMER($0)
+
 
 
 #####================================#####
@@ -162,6 +166,7 @@ continueMove:
     sw $t5, ANGLE_CONTROL($0)
     li $t3, 3
     bge $t4, $t3, skip270
+    sw $0, SEED_TILE($0)
     lw  $t1, GET_NUM_SEEDS($0)
     li  $t2, 10
     bge $t1, $t2, needWater         #IF bot => 10 seeds, get water
@@ -195,7 +200,7 @@ ResetWater:
     j continueMove
 waterTileOnce:
     addi $t8, $t8, 1
-    li	 $t9, 5
+    li	 $t9, 8
     sw	 $t9, WATER_TILE($0)
     j continueMove
 
@@ -440,6 +445,8 @@ harvest_move_neg_y:                #moves in the negative y
 
 harvest_tile:                   #puts out the fire
   sw $0, HARVEST_TILE($0)
+  lw $t9, GET_NUM_WATER_DROPS
+  sw $t9, PRINT_INT_ADDR
   li  $t0, 0  	            #ELSE get seeds
   sw  $t0, SET_RESOURCE_TYPE($0)
   la  $t0, puzzleChunk
@@ -475,6 +482,12 @@ bonk_interrupt:
 
 timer_interrupt:
   sw $a0, TIMER_ACK($0)
+  sw $0, SET_RESOURCE_TYPE($0)
+  la $t0, puzzleChunk
+  sw $t0, REQUEST_PUZZLE($0)
+  lw $t0, TIMER($0)
+  add $t0, $t0, 500000
+  sw $t0, TIMER($0)
   j interrupt_dispatch
 
 
