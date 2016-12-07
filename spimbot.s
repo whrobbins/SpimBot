@@ -121,15 +121,14 @@ moveToStartX2:
     lw  $t4, BOT_X
     div $t4, $t2
     mflo $t4                #t4 = Bot Ypos in grid
-    
     li  $t2, 9              #checks if in right column
     beq $t4, $t2, moveAlong     #starts movement if in rightmost column
-    beq $t3, $0, getWaterStart
+    beq $t8, $0, getWaterStart
     j moveToStartX2
 getWaterStart:
     li  $t7, 5
     bgt $t8, $t7, moveToStartX2
-    li  $t0, 0     	            #ELSE get seeds
+    li  $t0, 1   	            #ELSE get seeds
     sw  $t0, SET_RESOURCE_TYPE($0)
     la  $t0, puzzleChunk
     sw  $t0, REQUEST_PUZZLE($0)
@@ -401,7 +400,7 @@ harvest_move_neg_x:                #moves in the negative x
   li $a0, 1
   sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
-  sw $a0, VELOCITY($0)
+  sw $a0, VELOCITY($0)	
   j harvest_move_x
 
 harvest_move_y:                    #manages y movements
@@ -432,11 +431,15 @@ harvest_move_neg_y:                #moves in the negative y
   sw $a0, ANGLE_CONTROL($0)
   li $a0, 10
   sw $a0, VELOCITY($0)
-  #sw $0, HARVEST_TILE($0)
+  sw $0, HARVEST_TILE($0)
   j harvest_move_y
 
 harvest_tile:                   #puts out the fire
   sw $0, HARVEST_TILE($0)
+  li  $t0, 0  	            #ELSE get seeds
+  sw  $t0, SET_RESOURCE_TYPE($0)
+  la  $t0, puzzleChunk
+  sw  $t0, REQUEST_PUZZLE($0)
   j interrupt_dispatch
 
 #Finish harvest interrupt
@@ -452,8 +455,10 @@ bonk_interrupt:
   li $t0, 90
   sw $t0, ANGLE($0)
   sw $0, ANGLE_CONTROL($0)
-
-
+  li  $t0, 1    	            #ELSE get seeds
+  sw  $t0, SET_RESOURCE_TYPE($0)
+  la  $t0, puzzleChunk
+  sw  $t0, REQUEST_PUZZLE($0)
 
   j interrupt_dispatch
 
